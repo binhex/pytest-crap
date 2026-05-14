@@ -1,6 +1,6 @@
 [project]
 name = "pytest-crap"
-version = "0.3.0"
+version = "0.3.1"
 description = "pytest plugin that calculates CRAP scores to guide test writing"
 authors = [
     {name = "Christian Murphy", email = "christian.murphy.42@gmail.com"}
