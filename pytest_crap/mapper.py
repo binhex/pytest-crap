@@ -11,6 +11,7 @@ class FunctionDef:
     name: str
     start_line: int
     end_line: int
+    coverage_start_line: int
     is_method: bool = False
     is_async: bool = False
 
@@ -39,6 +40,15 @@ class FunctionMapper(ast.NodeVisitor):
         self._add_function(node, is_async=True)
         self.generic_visit(node)
 
+    @staticmethod
+    def _is_docstring(stmt: ast.stmt) -> bool:
+        """Check if an AST statement node is a docstring expression."""
+        return (
+            isinstance(stmt, ast.Expr)
+            and isinstance(stmt.value, ast.Constant)
+            and isinstance(stmt.value.value, str)
+        )
+
     def _add_function(
         self,
         node: ast.FunctionDef | ast.AsyncFunctionDef,
@@ -48,11 +58,27 @@ class FunctionMapper(ast.NodeVisitor):
         # Calculate end line: use the end of the last statement or decorator
         end_line = node.end_lineno or node.lineno
 
+        # Calculate the line where executable code starts, skipping docstring if present.
+        # Docstrings are non-executable and are never reported as covered by coverage
+        # tools, yet the AST node's end_lineno includes them. Excluding them from the
+        # coverage range prevents artificially-inflated CRAP scores.
+        coverage_start_line: int = node.lineno
+        first_stmt = node.body[0]
+        if self._is_docstring(first_stmt):
+            docstring_end = first_stmt.end_lineno or first_stmt.lineno
+            coverage_start_line = docstring_end + 1
+
+        # If the docstring was the entire body (e.g. an abstract stub), there are no
+        # executable lines to cover.
+        if coverage_start_line > end_line:
+            coverage_start_line = end_line + 1
+
         self.functions.append(
             FunctionDef(
                 name=node.name,
                 start_line=node.lineno,
                 end_line=end_line,
+                coverage_start_line=coverage_start_line,
                 is_method=self.current_class is not None,
                 is_async=is_async,
             )

@@ -193,6 +193,101 @@ def test_syntax_error() -> None:
         Path(path).unlink()
 
 
+def test_docstring_skipped_for_coverage_start() -> None:
+    """Test that docstrings are skipped for coverage_start_line."""
+    code = '''
+def foo():
+    """A docstring."""
+    return 1
+'''
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(code)
+        f.flush()
+        path = f.name
+
+    try:
+        functions = map_functions(path)
+        assert len(functions) == 1
+        func = functions[0]
+        # start_line is the def line (line 2)
+        assert func.start_line == 2
+        # docstring is on line 3, so executable code starts at line 4
+        assert func.coverage_start_line == 4
+        assert func.end_line == 4
+    finally:
+        Path(path).unlink()
+
+
+def test_multiline_docstring_skipped() -> None:
+    """Test that multiline docstrings are fully skipped."""
+    code = '''
+def foo():
+    """Line 1
+    Line 2
+    Line 3"""
+    return 1
+'''
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(code)
+        f.flush()
+        path = f.name
+
+    try:
+        functions = map_functions(path)
+        assert len(functions) == 1
+        func = functions[0]
+        assert func.start_line == 2
+        # The multiline docstring spans lines 3-5, so executable code starts at line 6
+        assert func.coverage_start_line == 6
+        assert func.end_line == 6
+    finally:
+        Path(path).unlink()
+
+
+def test_no_docstring_coverage_start_equals_start() -> None:
+    """Test that coverage_start_line equals start_line when no docstring exists."""
+    code = '''
+def foo():
+    return 1
+'''
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(code)
+        f.flush()
+        path = f.name
+
+    try:
+        functions = map_functions(path)
+        assert len(functions) == 1
+        func = functions[0]
+        assert func.start_line == 2
+        assert func.coverage_start_line == 2
+    finally:
+        Path(path).unlink()
+
+
+def test_docstring_only_body() -> None:
+    """Test function with only a docstring (abstract stub) — no executable lines."""
+    code = '''
+def foo():
+    """Just a stub."""
+'''
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(code)
+        f.flush()
+        path = f.name
+
+    try:
+        functions = map_functions(path)
+        assert len(functions) == 1
+        func = functions[0]
+        assert func.start_line == 2
+        assert func.end_line == 3
+        # Docstring-only body: coverage_start_line after end_line (no executable lines)
+        assert func.coverage_start_line == 4
+    finally:
+        Path(path).unlink()
+
+
 def test_line_ranges() -> None:
     """Test that line ranges are correct."""
     code = """

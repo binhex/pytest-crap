@@ -46,8 +46,12 @@ def calculate_crap(file_path: str, covered_lines: set[int]) -> list[FunctionScor
 
     out: list[FunctionScore] = []
     for fdef in funcs:
-        total_lines = max(1, fdef.end_line - fdef.start_line + 1)
-        covered = sum(1 for ln in range(fdef.start_line, fdef.end_line + 1) if ln in covered_lines)
+        # Use coverage_start_line to exclude non-executable lines (e.g. docstrings)
+        # from the coverage percentage calculation.
+        total_lines = max(1, fdef.end_line - fdef.coverage_start_line + 1)
+        covered = sum(
+            1 for ln in range(fdef.coverage_start_line, fdef.end_line + 1) if ln in covered_lines
+        )
         coverage_percent = (covered / total_lines) * 100.0
         cc = cc_by_start.get(fdef.start_line, 0)
         # CRAP = CC^2 * (1 - cov/100)^3 + CC

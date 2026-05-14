@@ -123,6 +123,67 @@ class C:
     assert math.isclose(m2.coverage_percent, expected_m2)
 
 
+def test_docstring_not_counted_towards_coverage() -> None:
+    """Docstring lines should not reduce coverage percentage."""
+    code = '''
+def foo():
+    """A docstring that should be ignored."""
+    return 1
+'''
+    # Only the return line is covered
+    executed: set[int] = {4}
+    scores = run_with_source(code, executed)
+    assert len(scores) == 1
+    s = scores[0]
+    # Without fix: total lines = 4-2+1 = 3, 1 covered -> 33.3%
+    # With fix: total lines = 4-4+1 = 1, 1 covered -> 100%
+    assert math.isclose(s.coverage_percent, 100.0)
+    assert math.isclose(s.crap, expected_crap(s.cc, 100.0))
+
+
+def test_docstring_partial_coverage() -> None:
+    """Docstring lines excluded but remaining lines counted correctly."""
+    code = '''
+def foo():
+    """A docstring."""
+    x = 1
+    if x:
+        return x
+    return 0
+'''
+    # Cover only the first executable line (x = 1)
+    executed: set[int] = {4}
+    scores = run_with_source(code, executed)
+    assert len(scores) == 1
+    s = scores[0]
+    # Executable range starts after the docstring (line 4) and ends at line 7.
+    # 4 executable lines (4-7), 1 covered -> 25%
+    executable_start = 4  # line after docstring
+    executable_end = s.end_line
+    total_lines = executable_end - executable_start + 1
+    covered = sum(1 for ln in range(executable_start, executable_end + 1) if ln in executed)
+    expected_percent = (covered / total_lines) * 100.0
+    assert math.isclose(s.coverage_percent, expected_percent)
+    assert math.isclose(s.crap, expected_crap(s.cc, s.coverage_percent))
+
+
+def test_multiline_docstring_coverage() -> None:
+    """Multiline docstrings should also be excluded from coverage range."""
+    code = '''
+def foo():
+    """Line 1
+    Line 2
+    Line 3"""
+    return 1
+'''
+    executed: set[int] = {6}
+    scores = run_with_source(code, executed)
+    assert len(scores) == 1
+    s = scores[0]
+    # Executable range: only line 6. 1 covered -> 100%
+    assert math.isclose(s.coverage_percent, 100.0)
+
+
 def test_cc_visit_node_without_lineno() -> None:
     """Test handling of CC nodes without lineno."""
     code = """
