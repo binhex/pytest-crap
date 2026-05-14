@@ -7,6 +7,23 @@ from radon.complexity import cc_visit
 from .mapper import map_functions
 
 
+def _count_executable_lines(source_lines: list[str], start: int, end: int) -> int:
+    """Count lines in [start, end] that are neither blank nor comment-only.
+
+    Blank lines and comments are never tracked by coverage tools; including
+    them in the CRAP denominator produces an artificially inflated score.
+    """
+    count = 0
+    # source_lines is 0-indexed; start/end are 1-based line numbers.
+    for ln in range(start, end + 1):
+        if ln < 1 or ln > len(source_lines):
+            continue
+        stripped = source_lines[ln - 1].strip()
+        if stripped and not stripped.startswith("#"):
+            count += 1
+    return count
+
+
 @dataclass
 class FunctionScore:
     name: str
@@ -44,11 +61,18 @@ def calculate_crap(file_path: str, covered_lines: set[int]) -> list[FunctionScor
             continue
         cc_by_start[start] = complexity
 
+    source_lines: list[str] = source.split("\n")
+
     out: list[FunctionScore] = []
     for fdef in funcs:
-        # Use coverage_start_line to exclude non-executable lines (e.g. docstrings)
-        # from the coverage percentage calculation.
-        total_lines = max(1, fdef.end_line - fdef.coverage_start_line + 1)
+        # Count only executable lines: exclude docstrings, blank lines, and
+        # comment-only lines.  These lines are never reported by coverage tools
+        # yet would be included in the physical line range, artificially
+        # inflating the CRAP score.
+        total_lines = max(
+            1,
+            _count_executable_lines(source_lines, fdef.coverage_start_line, fdef.end_line),
+        )
         covered = sum(
             1 for ln in range(fdef.coverage_start_line, fdef.end_line + 1) if ln in covered_lines
         )

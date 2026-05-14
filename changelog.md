@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Filter out blank lines and comments from the total line count used for coverage percentage
+  calculation. These non-executable lines were previously included, artificially inflating
+  CRAP scores (e.g., a function with 100% executable coverage could report 50% coverage
+  due to blank/comment lines).
+- Filter out docstrings from the coverage line range to prevent inflated CRAP scores
+  on functions that have docstrings spanning multiple lines.
+
 ## [0.3.0] - 2025-12-02
 
 ### Changed

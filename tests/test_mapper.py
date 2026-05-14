@@ -246,10 +246,10 @@ def foo():
 
 def test_no_docstring_coverage_start_equals_start() -> None:
     """Test that coverage_start_line equals start_line when no docstring exists."""
-    code = '''
+    code = """
 def foo():
     return 1
-'''
+"""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(code)
         f.flush()
